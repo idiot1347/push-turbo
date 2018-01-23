@@ -68,6 +68,17 @@ class Pipe(object):
             except Exception as e:
                 logging.critical('Unknown init beanstalk error: %s' % e)
 
+    def _delete_old_jobs(self):
+        for i in range(1000):
+            job = self.beanstalk.peek_ready()
+            if job.stats()['age'] > 3600*4:
+                logging.debug(
+                    'After init_gateway failed, Deleting too old job: %s' %
+                    job.body)
+                job.delete()
+            else:
+                break
+
     def init_gateway(self):
         logging.debug('Init gateway start')
         while True:
@@ -91,6 +102,7 @@ class Pipe(object):
                     logging.debug('Invalid key')
             except (socket.error, IOError) as e:
                 logging.debug('Gateway connect error %s' % e)
+            self._delete_old_jobs()
             time.sleep(2)
 
     def process_gateway_input(self):
